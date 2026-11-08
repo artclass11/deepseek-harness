@@ -25,7 +25,7 @@ class PluginBuilderTests(unittest.TestCase):
     def test_rejects_non_https_or_non_mcp_endpoint(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             archive = Path(temporary) / "plugin.zip"
-            for endpoint in ("http://example.com/mcp", "https://example.com/", "https://user:pw@example.com/mcp"):
+            for endpoint in ("http://example.com/mcp", "https://example.com/", "https://user:pw@example.com/mcp", "https://127.0.0.1/mcp", "https://localhost/mcp", "https://example.local/mcp", "https://example.com:8443/mcp"):
                 with self.subTest(endpoint=endpoint):
                     with self.assertRaises(ValueError):
                         build_plugin(endpoint, archive)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import zipfile
 from pathlib import Path
@@ -9,12 +10,28 @@ _TEMPLATE_ROOT = Path(__file__).resolve().parents[2] / "plugin-template"
 
 
 def _validate_endpoint(endpoint: str) -> str:
-    parsed = urlsplit(endpoint.strip())
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+    normalized = endpoint.strip()
+    try:
+        parsed = urlsplit(normalized)
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("endpoint must be a valid HTTPS URL") from exc
+    host = (parsed.hostname or "").rstrip(".").lower()
+    if parsed.scheme != "https" or not host or parsed.username or parsed.password:
         raise ValueError("endpoint must be an HTTPS URL without embedded credentials")
     if parsed.path.rstrip("/") != "/mcp" or parsed.query or parsed.fragment:
         raise ValueError("endpoint must be the MCP endpoint ending in /mcp without query or fragment")
-    return endpoint.rstrip("/")
+    if port not in (None, 443):
+        raise ValueError("endpoint must use the standard HTTPS port")
+    if host == "localhost" or host.endswith((".localhost", ".local", ".internal", ".test")):
+        raise ValueError("endpoint must use a public DNS hostname")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("endpoint must use a DNS hostname, not an IP address")
+    return normalized.rstrip("/")
 
 
 def build_plugin(endpoint: str, output: Path) -> Path:

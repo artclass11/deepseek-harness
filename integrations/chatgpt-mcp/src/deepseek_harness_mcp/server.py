@@ -96,11 +96,14 @@ def create_app(config: BridgeConfig | None = None) -> Any:
         """Answer every question ID in one pending request, preserving the original option labels."""
         return runtime.answer_question(request_id, answers)
 
-    # The outer TrustedHost middleware checks tunnel Host values. The MCP SDK's
-    # own hostname check is disabled only because Cloudflare terminates TLS and
-    # forwards the original public Host; bearer auth remains mandatory.
+    # Quick Tunnels do not support SSE. JSON response mode keeps MCP request
+    # responses on ordinary HTTP while retaining Streamable HTTP session state.
+    # The outer TrustedHost middleware checks the tunnel Host; MCP's own host
+    # check is disabled because Cloudflare terminates TLS and forwards that host.
     transport_security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
     app = mcp.streamable_http_app(
+        json_response=True,
+        stateless_http=False,
         transport_security=transport_security,
         host="127.0.0.1",
         max_request_body_size=1_048_576,

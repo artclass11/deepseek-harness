@@ -17,11 +17,14 @@ New-Item -ItemType Directory -Force -Path $logs, $secrets, $dshHome | Out-Null
 
 $tokenFile = Join-Path $secrets "mcp-bearer-token.txt"
 if (-not (Test-Path $tokenFile)) {
-    $bytes = [Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
-    $token = [Convert]::ToHexString($bytes).ToLowerInvariant()
+    $random = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $bytes = New-Object byte[] 32
+    try { $random.GetBytes($bytes) } finally { $random.Dispose() }
+    $token = [BitConverter]::ToString($bytes).Replace("-", "").ToLowerInvariant()
     [IO.File]::WriteAllText($tokenFile, $token)
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     & icacls $tokenFile /inheritance:r /grant:r ("{0}:(F)" -f $identity) | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Unable to restrict the bearer-token file permissions." }
 }
 $env:MCP_BEARER_TOKEN = (Get-Content -Raw $tokenFile).Trim()
 $env:DSH_HOME = $dshHome

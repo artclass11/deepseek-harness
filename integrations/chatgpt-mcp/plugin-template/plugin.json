@@ -21,6 +21,7 @@
         "shortDescription": "Local DeepSeek coding agent",
         "longDescription": "Run software engineering tasks through your own DeepSeek Harness runtime. The agent executes on your Windows PC inside its configured workspace and sandbox. Pending risky operations require explicit one-time approval.",
         "developerName": "artclass11",
+        "category": "Developer Tools",
         "capabilities": [],
         "defaultPrompt": [
           "Use my local DeepSeek Harness to inspect this repository and propose a verified implementation plan.",

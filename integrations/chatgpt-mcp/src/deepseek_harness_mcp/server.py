@@ -109,7 +109,7 @@ def create_app(config: BridgeConfig | None = None) -> Any:
         max_request_body_size=1_048_576,
         max_sessions=2,
     )
-    allowed_hosts = ["localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*", "*.trycloudflare.com"]
+    allowed_hosts = ["localhost", "127.0.0.1", "*.trycloudflare.com"]
     extra_hosts = os.environ.get("MCP_ALLOWED_HOSTS", "").strip()
     if extra_hosts:
         allowed_hosts.extend(host.strip() for host in extra_hosts.split(",") if host.strip())

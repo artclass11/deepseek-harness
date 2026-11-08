@@ -11,6 +11,15 @@ This integration lets ChatGPT call a private MCP server that runs on your Window
 - cloudflared installed locally.
 - A DeepSeek API key. Enter it only in the local PowerShell prompt.
 
+## Get the integration branch
+
+In an existing clone of your fork, fetch and switch to the bridge branch:
+
+    git fetch origin feat/chatgpt-mcp-bridge
+    git switch feat/chatgpt-mcp-bridge
+
+Run the remaining commands from the repository root on this branch.
+
 ## Build and install
 
 Open PowerShell at the repository root and run:
@@ -36,7 +45,7 @@ The quick tunnel uses a temporary trycloudflare.com address. It does not require
 
 After the start script prints the live MCP URL, use the private plugin creator workflow in this ChatGPT conversation. Give ChatGPT only the HTTPS endpoint, for example https://example.trycloudflare.com/mcp. Do not send the bearer token or DEEPSEEK_API_KEY in chat.
 
-The generated private plugin requests bearer API-key authentication. When ChatGPT presents the secure connection prompt, enter the local token from integrations/chatgpt-mcp/secrets/mcp-bearer-token.txt. Do not paste the token into an ordinary chat message. After connecting, ask ChatGPT to call health_check and verify the returned local runtime and workspace.
+The generated private plugin requests bearer API-key authentication. When ChatGPT presents the secure connection prompt, enter the local token from %LOCALAPPDATA%\DeepSeekHarness\ChatGPTBridge\secrets\mcp-bearer-token.txt. Do not paste the token into an ordinary chat message. After connecting, ask ChatGPT to call health_check and verify the returned local runtime and workspace.
 
 ## Available tools
 
@@ -62,8 +71,8 @@ A Quick Tunnel URL is temporary. When it changes, rerun the private plugin packa
 ## Troubleshooting
 
 - If the SDK build fails, inspect the first failing command in the setup terminal; use docs/development.md and the Python SDK runtime README.
-- If the local health route fails, inspect integrations/chatgpt-mcp/logs/server.err.log.
-- If the tunnel does not print a trycloudflare.com address, check cloudflared installation and its logs in integrations/chatgpt-mcp/logs.
+- If the local health route fails, inspect %LOCALAPPDATA%\DeepSeekHarness\ChatGPTBridge\logs\server.err.log.
+- If the tunnel does not print a trycloudflare.com address, check cloudflared installation and the cloudflared.out.log / cloudflared.err.log files in that same logs directory.
 - If ChatGPT receives 401, re-enter the bearer token in the plugin's secure connection prompt. Never put it in mcp.json.
 - If ChatGPT cannot connect after a restart, the Quick Tunnel address has rotated; reconnect using the new URL.
 

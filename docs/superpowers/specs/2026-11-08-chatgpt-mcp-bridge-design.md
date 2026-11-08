@@ -28,7 +28,7 @@ HTTP uses a random bearer token, a Host allowlist, loopback binding, bounded too
 
 ## Operating assumptions
 
-- Windows x64 PC, Node.js 24.9 or newer, Corepack/pnpm 11.28.5, Python 3.10 or newer, and cloudflared installed locally.
+- Windows x64 PC, Node.js 24.9 or newer, Corepack/pnpm 11.28.5, Python 3.11 or newer, and cloudflared installed locally.
 - The repository checkout is on the integration branch.
 - The user supplies DEEPSEEK_API_KEY locally in the start terminal; it is never stored in the repository or sent to ChatGPT.
 - Quick Tunnel URLs are temporary and change when the tunnel process restarts. A new private plugin release is required when the URL changes.

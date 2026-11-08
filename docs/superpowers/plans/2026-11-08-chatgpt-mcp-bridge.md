@@ -6,7 +6,7 @@
 
 **Architecture:** An isolated Python MCP server wraps the existing Python SDK, persists Harness sessions under a dedicated DSH_HOME, and limits task directories to one configured workspace root. A loopback-only HTTP service is exposed through a temporary Cloudflare Quick Tunnel; a private ChatGPT plugin archive is generated only after the real HTTPS endpoint exists.
 
-**Tech Stack:** Python 3.10+, official MCP Python SDK v2, Starlette, Uvicorn, existing DeepSeek Harness Python SDK, PowerShell, cloudflared.
+**Tech Stack:** Python 3.11+, official MCP Python SDK v2, Starlette, Uvicorn, existing DeepSeek Harness Python SDK, PowerShell, cloudflared.
 
 **Spec:** docs/superpowers/specs/2026-11-08-chatgpt-mcp-bridge-design.md
 

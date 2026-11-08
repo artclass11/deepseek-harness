@@ -79,7 +79,7 @@ try {
     }
     if (-not $localReady) { throw "MCP server did not become ready. Inspect $serverErr" }
 
-    $tunnel = Start-Process -FilePath $cloudflaredCommand.Source -ArgumentList @("tunnel", "--url", "http://127.0.0.1:8765", "--output", "json") -PassThru -NoNewWindow -RedirectStandardOutput $tunnelOut -RedirectStandardError $tunnelErr
+    $tunnel = Start-Process -FilePath $cloudflaredCommand.Source -ArgumentList @("tunnel", "--url", "http://127.0.0.1:8765") -PassThru -NoNewWindow -RedirectStandardOutput $tunnelOut -RedirectStandardError $tunnelErr
     $endpoint = $null
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         if ($tunnel.HasExited) { throw "cloudflared exited during startup. Inspect $tunnelErr" }

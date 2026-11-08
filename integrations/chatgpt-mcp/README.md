@@ -6,7 +6,7 @@ This integration lets ChatGPT call a private MCP server that runs on your Window
 
 - Windows x64.
 - Node.js 24.9 or newer and Corepack-enabled pnpm 11.28.5.
-- Python 3.10 or newer.
+- Python 3.11 or newer (required by MCP SDK v2).
 - Git and a checkout of this repository on the integration branch.
 - cloudflared installed locally.
 - A DeepSeek API key. Enter it only in the local PowerShell prompt.

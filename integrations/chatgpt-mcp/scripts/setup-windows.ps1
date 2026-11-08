@@ -20,7 +20,7 @@ function Assert-CommandVersion {
 }
 
 Assert-CommandVersion -Name "node" -MinimumVersion "24.9.0"
-Assert-CommandVersion -Name "python" -MinimumVersion "3.10.0"
+Assert-CommandVersion -Name "python" -MinimumVersion "3.11.0"
 if (-not (Get-Command "corepack" -ErrorAction SilentlyContinue)) {
     throw "Corepack is required. Install a Node.js distribution that includes Corepack."
 }

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "deepseek-harness-local",
+  "version": "0.1.0",
+  "description": "Connect ChatGPT to a local DeepSeek Harness coding-agent runtime.",
+  "author": {
+    "name": "artclass11"
+  },
+  "repository": "https://github.com/artclass11/deepseek-harness",
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "coding-agent",
+    "mcp",
+    "local-runtime"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "DeepSeek Harness",
+        "shortDescription": "Local DeepSeek coding agent",
+        "longDescription": "Run software engineering tasks through your own DeepSeek Harness runtime. The agent executes on your Windows PC inside its configured workspace and sandbox. Pending risky operations require explicit one-time approval.",
+        "developerName": "artclass11",
+        "category": "Developer Tools",
+        "capabilities": [],
+        "defaultPrompt": [
+          "Use my local DeepSeek Harness to inspect this repository and propose a verified implementation plan.",
+          "Use my local DeepSeek Harness to implement a software change, run tests, and report the exact verification results.",
+          "Check my local DeepSeek Harness sessions and any pending approvals."
+        ]
+      }
+    }
+  }
+}

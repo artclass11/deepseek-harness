@@ -1,0 +1,83 @@
+name: ChatGPT MCP bridge
+
+on:
+  pull_request:
+    paths:
+      - integrations/chatgpt-mcp/**
+  push:
+    branches:
+      - master
+    paths:
+      - integrations/chatgpt-mcp/**
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: integrations/chatgpt-mcp/requirements.txt
+
+      - name: Install bridge test dependencies
+        run: python -m pip install --disable-pip-version-check -r integrations/chatgpt-mcp/requirements.txt
+
+      - name: Compile bridge, scripts, and tests
+        run: python -m compileall -q integrations/chatgpt-mcp/src integrations/chatgpt-mcp/scripts integrations/chatgpt-mcp/tests
+
+      - name: Run bridge unit tests
+        run: python -m pytest -q integrations/chatgpt-mcp
+
+  bridge-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: integrations/chatgpt-mcp/requirements.txt
+
+      - name: Install bridge test dependencies
+        run: python -m pip install --disable-pip-version-check -r integrations/chatgpt-mcp/requirements.txt
+
+      - name: Parse Windows setup and launcher scripts
+        shell: pwsh
+        run: |
+          $files = @(
+            "integrations/chatgpt-mcp/scripts/setup-windows.ps1",
+            "integrations/chatgpt-mcp/scripts/start-windows.ps1"
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file).Path,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+            }
+            Write-Host "PowerShell syntax OK: $file"
+          }
+
+      - name: Compile bridge and tests
+        run: python -m compileall -q integrations/chatgpt-mcp/src integrations/chatgpt-mcp/scripts integrations/chatgpt-mcp/tests
+
+      - name: Run bridge unit and HTTP security tests
+        run: python -m pytest -q integrations/chatgpt-mcp

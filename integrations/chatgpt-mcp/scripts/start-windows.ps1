@@ -1,0 +1,114 @@
+$ErrorActionPreference = "Stop"
+$integrationRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = (Resolve-Path (Join-Path $integrationRoot "..\..")).Path
+$pythonExe = Join-Path $integrationRoot ".venv\Scripts\python.exe"
+if (-not (Test-Path $pythonExe)) {
+    throw "Bridge is not installed. Run integrations\chatgpt-mcp\scripts\setup-windows.ps1 first."
+}
+$cloudflaredCommand = Get-Command "cloudflared" -ErrorAction SilentlyContinue
+if (-not $cloudflaredCommand) {
+    throw "cloudflared is required. Install it from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ and rerun this script."
+}
+
+$stateRoot = Join-Path $env:LOCALAPPDATA "DeepSeekHarness\ChatGPTBridge"
+$logs = Join-Path $stateRoot "logs"
+$secrets = Join-Path $stateRoot "secrets"
+$dshHome = Join-Path $stateRoot "dsh-home"
+if (-not $env:DSH_WORKSPACE_ROOT) { $env:DSH_WORKSPACE_ROOT = $repoRoot }
+$workspaceRoot = (Resolve-Path $env:DSH_WORKSPACE_ROOT).Path
+New-Item -ItemType Directory -Force -Path $logs, $secrets, $dshHome | Out-Null
+$stateRootResolved = (Resolve-Path $stateRoot).Path.TrimEnd("\")
+$workspacePrefix = $workspaceRoot.TrimEnd("\") + "\"
+if ($stateRootResolved.Equals($workspaceRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    $stateRootResolved.StartsWith($workspacePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "The bridge state directory is inside the workspace. Choose a narrower DSH_WORKSPACE_ROOT so the agent cannot read its token or Harness state."
+}
+
+$tokenFile = Join-Path $secrets "mcp-bearer-token.txt"
+if (-not (Test-Path $tokenFile)) {
+    $random = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $bytes = New-Object byte[] 32
+    try { $random.GetBytes($bytes) } finally { $random.Dispose() }
+    $token = [BitConverter]::ToString($bytes).Replace("-", "").ToLowerInvariant()
+    [IO.File]::WriteAllText($tokenFile, $token)
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    & icacls $tokenFile /inheritance:r /grant:r ("{0}:(F)" -f $identity) | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Unable to restrict the bearer-token file permissions." }
+}
+$env:MCP_BEARER_TOKEN = (Get-Content -Raw $tokenFile).Trim()
+$env:DSH_HOME = $dshHome
+$env:DSH_WORKSPACE_ROOT = $workspaceRoot
+$env:MCP_PORT = "8765"
+$env:DSH_TELEMETRY_DISABLED = "1"
+$env:PYTHONPATH = Join-Path $integrationRoot "src"
+
+if (-not $env:DEEPSEEK_API_KEY) {
+    $secureKey = Read-Host "Enter your DeepSeek API key (input is hidden)" -AsSecureString
+    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureKey)
+    try {
+        $env:DEEPSEEK_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
+    }
+}
+if (-not $env:DEEPSEEK_API_KEY) {
+    throw "DEEPSEEK_API_KEY is required."
+}
+
+$serverOut = Join-Path $logs "server.out.log"
+$serverErr = Join-Path $logs "server.err.log"
+$tunnelOut = Join-Path $logs "cloudflared.out.log"
+$tunnelErr = Join-Path $logs "cloudflared.err.log"
+$server = $null
+$tunnel = $null
+
+try {
+    $server = Start-Process -FilePath $pythonExe -ArgumentList @("-m", "deepseek_harness_mcp.server") -WorkingDirectory $integrationRoot -PassThru -NoNewWindow -RedirectStandardOutput $serverOut -RedirectStandardError $serverErr
+    $localReady = $false
+    for ($attempt = 0; $attempt -lt 45; $attempt++) {
+        if ($server.HasExited) { throw "MCP server exited during startup. Inspect $serverErr" }
+        try {
+            Invoke-RestMethod -Uri "http://127.0.0.1:8765/healthz" -Headers @{ Authorization = "Bearer $env:MCP_BEARER_TOKEN" } -TimeoutSec 2 | Out-Null
+            $localReady = $true
+            break
+        }
+        catch {
+            Start-Sleep -Seconds 1
+        }
+    }
+    if (-not $localReady) { throw "MCP server did not become ready. Inspect $serverErr" }
+
+    $tunnel = Start-Process -FilePath $cloudflaredCommand.Source -ArgumentList @("tunnel", "--url", "http://127.0.0.1:8765") -PassThru -NoNewWindow -RedirectStandardOutput $tunnelOut -RedirectStandardError $tunnelErr
+    $endpoint = $null
+    for ($attempt = 0; $attempt -lt 60; $attempt++) {
+        if ($tunnel.HasExited) { throw "cloudflared exited during startup. Inspect $tunnelErr" }
+        foreach ($logFile in @($tunnelOut, $tunnelErr)) {
+            if (Test-Path $logFile) {
+                $content = Get-Content -Raw $logFile
+                if ($content -match 'https://[a-z0-9-]+\.trycloudflare\.com') {
+                    $endpoint = $Matches[0] + "/mcp"
+                    break
+                }
+            }
+        }
+        if ($endpoint) { break }
+        Start-Sleep -Seconds 1
+    }
+    if (-not $endpoint) { throw "No Quick Tunnel URL was detected. Inspect $tunnelOut and $tunnelErr" }
+
+    Write-Host ""
+    Write-Host "DeepSeek Harness MCP is ready."
+    Write-Host "MCP endpoint: $endpoint"
+    Write-Host "Bearer token is stored locally at: $tokenFile"
+    Write-Host "Do not paste the bearer token or DeepSeek API key into chat."
+    Write-Host "Keep this window open. Press Ctrl+C to stop the tunnel and local bridge."
+    Write-Host ""
+    Write-Host "Send only the MCP endpoint URL in this ChatGPT conversation so the private plugin can be packaged."
+    Wait-Process -Id $tunnel.Id
+}
+finally {
+    if ($tunnel -and -not $tunnel.HasExited) { Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue }
+    if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+    Write-Host "Local MCP bridge stopped."
+}

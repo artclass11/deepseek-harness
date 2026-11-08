@@ -8,6 +8,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from deepseek_harness import DeepSeekHarness, DeepSeekHarnessConfig, UserQuestionAnswer, UserQuestionRequest
+
 from .config import BridgeConfig
 from .workspace import resolve_workspace, validate_session_id
 
@@ -33,32 +35,11 @@ def validate_question_answers(
         for question in questions
         if isinstance(question.get("id"), str)
     }
-    if not isinstance(answers, list) or not expected or len(answers) != len(expected):
-        raise ValueError("answers must contain exactly one answer for each original question id")
-    received: list[str] = []
-    normalized: list[dict[str, Any]] = []
-    for answer in answers:
-        if not isinstance(answer, dict):
-            raise ValueError("each answer must be an object")
-        answer_id = answer.get("id")
-        selected = answer.get("selected")
-        custom = answer.get("custom")
-        if not isinstance(answer_id, str) or not isinstance(selected, list):
-            raise ValueError("each answer requires a string id and selected string array")
-        if any(not isinstance(option, str) for option in selected):
-            raise ValueError("selected options must all be strings")
-        if custom is not None and not isinstance(custom, str):
-            raise ValueError("custom answer must be a string when supplied")
-        if set(answer) - {"id", "selected", "custom"}:
-            raise ValueError("answer contains unsupported fields")
-        received.append(answer_id)
-        normalized_item: dict[str, Any] = {"id": answer_id, "selected": selected}
-        if custom is not None:
-            normalized_item["custom"] = custom
-        normalized.append(normalized_item)
+    parsed = UserQuestionAnswer.model_validate({"answers": answers})
+    received = [answer.id for answer in parsed.answers]
     if len(received) != len(set(received)) or set(received) != expected:
         raise ValueError("answers must contain exactly one answer for each original question id")
-    return {"answers": normalized}
+    return parsed.model_dump(exclude_none=True, by_alias=True)
 
 
 @dataclass(slots=True)
@@ -106,7 +87,7 @@ class HarnessRuntime:
         self.config = config
         self._lock = threading.RLock()
         self._condition = threading.Condition(self._lock)
-        self._harness: Any | None = None
+        self._harness: DeepSeekHarness | None = None
         self._approval_thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._tasks: dict[str, TaskRecord] = {}
@@ -374,12 +355,10 @@ class HarnessRuntime:
         temporary.write_text(json.dumps(self._sessions, ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(self._sessions_file)
 
-    def _ensure_started(self) -> Any:
+    def _ensure_started(self) -> DeepSeekHarness:
         with self._lock:
             if self._harness is not None:
                 return self._harness
-            from deepseek_harness import DeepSeekHarness, DeepSeekHarnessConfig
-
             harness = DeepSeekHarness(
                 DeepSeekHarnessConfig(
                     provider="deepseek-official",
@@ -448,7 +427,7 @@ class HarnessRuntime:
                     self._approvals.pop(approval_id, None)
 
     def _handle_user_question(
-        self, request: Any, cancelled: threading.Event
+        self, request: UserQuestionRequest, cancelled: threading.Event
     ) -> dict[str, Any]:
         item = QuestionRecord(
             request_id=request.request_id,

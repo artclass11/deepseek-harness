@@ -10,10 +10,19 @@ if (-not $cloudflaredCommand) {
     throw "cloudflared is required. Install it from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ and rerun this script."
 }
 
-$logs = Join-Path $integrationRoot "logs"
-$secrets = Join-Path $integrationRoot "secrets"
-$dshHome = Join-Path $integrationRoot ".dsh-home"
+$stateRoot = Join-Path $env:LOCALAPPDATA "DeepSeekHarness\ChatGPTBridge"
+$logs = Join-Path $stateRoot "logs"
+$secrets = Join-Path $stateRoot "secrets"
+$dshHome = Join-Path $stateRoot "dsh-home"
+if (-not $env:DSH_WORKSPACE_ROOT) { $env:DSH_WORKSPACE_ROOT = $repoRoot }
+$workspaceRoot = (Resolve-Path $env:DSH_WORKSPACE_ROOT).Path
 New-Item -ItemType Directory -Force -Path $logs, $secrets, $dshHome | Out-Null
+$stateRootResolved = (Resolve-Path $stateRoot).Path.TrimEnd("\")
+$workspacePrefix = $workspaceRoot.TrimEnd("\") + "\"
+if ($stateRootResolved.Equals($workspaceRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    $stateRootResolved.StartsWith($workspacePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "The bridge state directory is inside the workspace. Choose a narrower DSH_WORKSPACE_ROOT so the agent cannot read its token or Harness state."
+}
 
 $tokenFile = Join-Path $secrets "mcp-bearer-token.txt"
 if (-not (Test-Path $tokenFile)) {
@@ -28,7 +37,7 @@ if (-not (Test-Path $tokenFile)) {
 }
 $env:MCP_BEARER_TOKEN = (Get-Content -Raw $tokenFile).Trim()
 $env:DSH_HOME = $dshHome
-$env:DSH_WORKSPACE_ROOT = $repoRoot
+$env:DSH_WORKSPACE_ROOT = $workspaceRoot
 $env:MCP_PORT = "8765"
 $env:DSH_TELEMETRY_DISABLED = "1"
 $env:PYTHONPATH = Join-Path $integrationRoot "src"

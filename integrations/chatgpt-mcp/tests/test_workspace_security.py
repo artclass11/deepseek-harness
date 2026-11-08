@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
+from deepseek_harness_mcp.config import BridgeConfig
 from deepseek_harness_mcp.security import is_valid_bearer
 from deepseek_harness_mcp.workspace import resolve_workspace, validate_session_id
 
@@ -53,6 +56,20 @@ class WorkspaceSecurityTests(unittest.TestCase):
         for invalid in ("", "../escape", "white space", "a" * 81):
             with self.assertRaises(ValueError):
                 validate_session_id(invalid)
+
+    def test_config_rejects_runtime_home_inside_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "workspace"
+            home = root / ".private-runtime"
+            root.mkdir()
+            env = {
+                "MCP_BEARER_TOKEN": "a" * 64,
+                "DSH_WORKSPACE_ROOT": str(root),
+                "DSH_HOME": str(home),
+            }
+            with patch.dict(os.environ, env, clear=False):
+                with self.assertRaisesRegex(ValueError, "outside DSH_WORKSPACE_ROOT"):
+                    BridgeConfig.from_env()
 
     def test_bearer_requires_scheme_and_exact_token(self) -> None:
         self.assertTrue(is_valid_bearer("Bearer abcdef0123456789", "abcdef0123456789"))

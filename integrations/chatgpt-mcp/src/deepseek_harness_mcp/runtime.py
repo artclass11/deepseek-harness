@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 import uuid
@@ -14,6 +15,14 @@ from .workspace import resolve_workspace, validate_session_id
 _LOG = logging.getLogger(__name__)
 _MAX_TASK_CHARS = 20_000
 _MAX_OUTPUT_CHARS = 24_000
+
+
+def sanitize_error_message(error: BaseException, secrets_to_redact: list[str]) -> str:
+    message = f"{type(error).__name__}: {error}"
+    for secret in secrets_to_redact:
+        if secret:
+            message = message.replace(secret, "[REDACTED]")
+    return message[:4000]
 
 
 def validate_task_prompt(task: str) -> str:
@@ -209,9 +218,13 @@ class HarnessRuntime:
                 self._sessions[record.session_id]["updated_at"] = record.updated_at
                 self._write_sessions()
         except Exception as exc:
-            _LOG.exception("Harness task failed (task_id=%s)", record.task_id)
+            safe_error = sanitize_error_message(
+                exc,
+                [self.config.bearer_token, os.environ.get("DEEPSEEK_API_KEY", "")],
+            )
+            _LOG.error("Harness task failed (task_id=%s): %s", record.task_id, safe_error)
             with self._lock:
-                record.error = f"{type(exc).__name__}: {exc}"[:4000]
+                record.error = safe_error
                 record.status = "failed"
                 record.updated_at = time.time()
 

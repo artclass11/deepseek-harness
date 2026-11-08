@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from deepseek_harness_mcp.runtime import validate_question_answers, validate_task_prompt
+from deepseek_harness_mcp.runtime import sanitize_error_message, validate_question_answers, validate_task_prompt
 
 
 class RuntimeContractTests(unittest.TestCase):
@@ -12,6 +12,12 @@ class RuntimeContractTests(unittest.TestCase):
             validate_task_prompt(" ")
         with self.assertRaises(ValueError):
             validate_task_prompt("x" * 20001)
+
+    def test_error_messages_redact_both_bridge_and_model_secrets(self) -> None:
+        error = RuntimeError("model rejected token=deepseek-secret")
+        safe = sanitize_error_message(error, ["bridge-secret", "deepseek-secret"])
+        self.assertNotIn("deepseek-secret", safe)
+        self.assertIn("[REDACTED]", safe)
 
     def test_question_answers_require_exact_ids(self) -> None:
         questions = [{"id": "q1", "question": "Continue?"}, {"id": "q2", "question": "Which branch?"}]

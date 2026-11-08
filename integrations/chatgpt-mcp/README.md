@@ -28,7 +28,7 @@ Run:
 
 The script prompts for DEEPSEEK_API_KEY if the current PowerShell process does not already have it. The key is inherited by the local Harness subprocess and is not written to Git or the bridge session index.
 
-On first start, a random bearer token is created in the ignored secrets directory. The server binds to 127.0.0.1 only. The script starts cloudflared and prints an HTTPS MCP URL that ends in /mcp. Keep this PowerShell window open while using the ChatGPT plugin. Ctrl+C stops the tunnel and local server.
+On first start, a random bearer token is created under `%LOCALAPPDATA%\DeepSeekHarness\ChatGPTBridge\secrets`; Harness history and runtime state are kept in the same external state directory. These files are deliberately outside the workspace so the local agent cannot read its own bridge credential. The server binds to 127.0.0.1 only. The script starts cloudflared and prints an HTTPS MCP URL that ends in /mcp. Keep this PowerShell window open while using the ChatGPT plugin. Ctrl+C stops the tunnel and local server.
 
 The quick tunnel uses a temporary trycloudflare.com address. It does not require a Cloudflare account or custom domain, but the address changes when the tunnel restarts. For a lasting endpoint, configure a named Cloudflare Tunnel and a domain you control.
 
@@ -51,13 +51,13 @@ Only one task may be active at a time. Task records are in memory and disappear 
 
 ## Workspace and safety
 
-The workspace root defaults to the repository checkout. All selected directories must resolve beneath this root, including symlink targets. The Harness sdk profile supplies the repository's default Windows sandboxed workspace-write policy and risky-operation approval flow. Do not point the workspace root at your whole user profile, drive root, Downloads folder, or a directory containing unrelated secrets.
+The workspace root defaults to the repository checkout. Set `$env:DSH_WORKSPACE_ROOT` before running the launcher to choose a narrower existing project directory. The launcher refuses a workspace that contains the bridge's local application-data state. All selected directories must resolve beneath this root, including symlink targets. The Harness sdk profile supplies the repository's default Windows sandboxed workspace-write policy and risky-operation approval flow. Do not point the workspace root at your whole user profile, drive root, Downloads folder, or a directory containing unrelated secrets.
 
 The bridge does not expose raw shell or filesystem MCP tools. Agent shell and file operations remain inside the Harness runtime and its own permission controls. User authorization is required for every one-time approval; retrieved project instructions are never approval.
 
 ## Updating the tunnel URL
 
-A Quick Tunnel URL is temporary. When it changes, rerun the private plugin packaging and update/recreate the ChatGPT plugin with the new endpoint. The bearer token remains local unless you delete the ignored secret file and generate a new one.
+A Quick Tunnel URL is temporary. When it changes, rerun the private plugin packaging and update/recreate the ChatGPT plugin with the new endpoint. The bearer token remains under `%LOCALAPPDATA%\DeepSeekHarness\ChatGPTBridge\secrets` unless you delete the local secret file and generate a new one.
 
 ## Troubleshooting
 

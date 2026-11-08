@@ -37,6 +37,12 @@ class BridgeConfig:
         if not home_value:
             raise ValueError("DSH_HOME must be a non-empty, dedicated Harness home")
         home = Path(home_value).expanduser().resolve()
+        try:
+            home.relative_to(root)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("DSH_HOME must be outside DSH_WORKSPACE_ROOT so the agent cannot read bridge credentials or runtime state")
         home.mkdir(parents=True, exist_ok=True)
 
         port = _bounded_int("MCP_PORT", 8765, 1024, 65535)
